@@ -1,40 +1,50 @@
 import cv2
 from PIL import Image
-
+import numpy as np
 from ultralytics import YOLO
 
-imgFolder="C:\\Users\\Administrator\\Pictures\\testImg"
+# 设置图像文件夹路径
+imgFolder = "C:\\Users\\Administrator\\Pictures\\testImg"
 
 print("==============start===========")
 
-# 加载 YOLO 模型，"model.pt" 是预训练模型的文件路径
-model = YOLO("yolo11n.pt")
-# 实时摄像头输入
-# results = model.predict(source="0")
+# 加载 YOLO 模型，"yolo11n-pose.pt" 是预训练模型的文件路径
+model = YOLO("yolo11n-pose.pt")
 
-# 从文件夹读取图像
-results = model.predict(source=imgFolder, show=True)
+# 打开图像
+im1 = Image.open(imgFolder + "\\test4.jpg")
+# 将 PIL 图像转换为 NumPy 数组
+im1_cv = cv2.cvtColor(np.array(im1), cv2.COLOR_RGB2BGR)
 
+# 获取预测结果
+results = model.predict(source=im1)
 
-# 从 PIL 图像对象
-# im1 = Image.open("bus.jpg")
-# results = model.predict(source=im1, save=True)
+# 创建一张新的图像用于绘制
+output_image = im1_cv.copy()
 
-# 使用 OpenCV 打开一个图像文件，将其转换为 ndarray 对象进行预测。save=True 保存处理后的图像，save_txt=True 会将预测结果保存为文本文件格式（通常是标注文件）
-# im2 = cv2.imread("bus.jpg")
-# results = model.predict(source=im2, save=True, save_txt=True)  # save predictions as labels
+# 遍历每个检测结果
+for result in results:
+    # 获取姿势关键点
+    keypoints = result.keypoints  # 假设 keypoints 是一个 (1, 17, 3) 的数组，表示 1 个人体的 17 个关键点的 (x, y, confidence)
 
-# from list of PIL/ndarray
-# results = model.predict(source=[im1],show=True)
+    if keypoints is None:
+        print("未解析到数据")
+        break
 
-# 使用 cv2 显示每个预测结果
-for img in results:
-    cv2.imshow("Prediction", img.orig_img)  # 修改为 img.orig_img 根据实际接口
+    print(keypoints.data)
 
-# 在这里设置等候时间为 0，表示无限等候，确保窗口保持打开
+    # 获取姿势关键点数据
+    keypoints = keypoints.data.numpy()  # 转换为 NumPy 数组
+    for person in keypoints:  # 遍历每个人
+        for kp in person:  # 遍历每个关键点
+            x, y, confidence = kp
+            if confidence > 0.5:  # 仅绘制置信度大于阈值的关键点
+                cv2.circle(output_image, (int(x), int(y)), radius=5, color=(0, 255, 0), thickness=-1)
+# 显示结果
+cv2.imshow("Pose Estimation", output_image)
 cv2.waitKey(0)
-
-# 销毁所有窗口
 cv2.destroyAllWindows()
 
-print("==============complete===========")
+# 保存结果
+output_path = imgFolder + "\\test1_pose.jpg"
+cv2.imwrite(output_path, output_image)
